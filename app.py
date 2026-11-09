@@ -7,9 +7,14 @@ import qrcode
 
 
 st.set_page_config(
-    page_title="Bistecão Sugestões",
-    page_icon="🏪",              
+    page_title="Sugestões Bistecão",
+    page_icon="🏪",
     layout="centered",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
 
 def get_secret(chave, padrao=None):
