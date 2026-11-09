@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import csv
+import re
 from datetime import datetime
 from io import BytesIO, StringIO
 import qrcode
@@ -17,11 +18,35 @@ st.set_page_config(
     }
 )
 
+
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         header {visibility: hidden;}
         footer {visibility: hidden;}
+        
+        /* Borda azul nos inputs */
+        .stTextInput > div > div > input:focus, 
+        .stTextArea > div > div > textarea:focus {
+            border-color: #1f77b4 !important;
+            box-shadow: 0 0 0 1px #1f77b4 !important;
+        }
+        
+        /* Borda azul no container do formulário */
+        div[data-testid="stForm"] {
+            border-color: #1f77b4 !important;
+        }
+        
+        /* Botão azul */
+        .stButton > button {
+            border-color: #1f77b4 !important;
+            color: #1f77b4 !important;
+        }
+        .stButton > button:hover {
+            border-color: #1f77b4 !important;
+            color: #ffffff !important;
+            background-color: #1f77b4 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -43,19 +68,20 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sugestoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT,
+            telefone TEXT NOT NULL,
             sugestao TEXT NOT NULL,
-            contato TEXT,
             data TEXT NOT NULL
         )
     """)
     conn.commit()
     conn.close()
 
-def salvar_sugestao(sugestao, contato):
+def salvar_sugestao(nome, telefone, sugestao):
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "INSERT INTO sugestoes (sugestao, contato, data) VALUES (?, ?, ?)",
-        (sugestao, contato, datetime.now().strftime("%d/%m/%Y %H:%M")),
+        "INSERT INTO sugestoes (nome, telefone, sugestao, data) VALUES (?, ?, ?, ?)",
+        (nome, telefone, sugestao, datetime.now().strftime("%d/%m/%Y %H:%M")),
     )
     conn.commit()
     conn.close()
@@ -63,7 +89,7 @@ def salvar_sugestao(sugestao, contato):
 def listar_sugestoes():
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
-        "SELECT id, sugestao, contato, data FROM sugestoes ORDER BY id DESC"
+        "SELECT id, nome, telefone, sugestao, data FROM sugestoes ORDER BY id DESC"
     ).fetchall()
     conn.close()
     return rows
@@ -74,13 +100,24 @@ def deletar_sugestao(id_sugestao):
     conn.commit()
     conn.close()
 
+# Função para validar e limpar o telefone
+def validar_telefone(telefone):
+    numeros = re.sub(r'\D', '', telefone)
+    if len(numeros) in [10, 11]:
+        return True, numeros
+    return False, numeros
+
 init_db()
 
 
-st.sidebar.image("logo.png", width=140)
+try:
+    st.sidebar.image("logo.png", width=140)
+except:
+    pass # Se não tiver logo, não quebra o app
+
 st.sidebar.title("Menu")
 
-senha = st.sidebar.text_input("Ignorar:", type="password")
+senha = st.sidebar.text_input("IGNORAR:", type="password")
 
 if SENHA_CORRETA is None:
     is_lojista = False
@@ -104,7 +141,10 @@ else:
 if modo == "📝 Formulário do Cliente":
     col_logo, col_texto = st.columns([1, 4])
     with col_logo:
-        st.image("logo.png", width=90)
+        try:
+            st.image("logo.png", width=90)
+        except:
+            pass
     with col_texto:
         st.title("Supermercado Bistecão Sugestões.")
 
@@ -114,25 +154,38 @@ if modo == "📝 Formulário do Cliente":
     )
 
     with st.form(key="form_sugestao", clear_on_submit=True):
+        nome = st.text_input(
+            "Seu nome (opcional)",
+            placeholder="Ex: João Silva"
+        )
+        
+        telefone_input = st.text_input(
+            "Seu telefone/WhatsApp *",
+            placeholder="Ex: (11) 99999-9999"
+        )
+        
         sugestao = st.text_area(
             "O que está faltando ou poderia melhorar? *",
             placeholder="Ex: Sinto falta de produtos sem lactose...",
             max_chars=500,
             height=150,
         )
-        contato = st.text_input(
-            "Deixe seu contato (opcional)",
-            placeholder="Email ou WhatsApp (se quiser resposta)",
-        )
+        
         enviado = st.form_submit_button(
             "✅ Enviar Sugestão", use_container_width=True
         )
 
+    
     if enviado:
-        if not sugestao.strip():
+        telefone_valido, telefone_limpo = validar_telefone(telefone_input)
+        
+        if not telefone_valido:
+            st.error("⚠️ Telefone inválido! Digite um número com DDD (10 ou 11 dígitos). Ex: (11) 99999-9999")
+        elif not sugestao.strip():
             st.warning("⚠️ Por favor, escreva sua sugestão antes de enviar.")
         else:
-            salvar_sugestao(sugestao.strip(), contato.strip())
+            # AQUI ESTAVA O ERRO: Agora passamos as variáveis corretas
+            salvar_sugestao(nome.strip(), telefone_limpo, sugestao.strip())
             st.success("🎉 Obrigado! Sua sugestão foi registrada com sucesso.")
             st.balloons()
 
@@ -153,12 +206,12 @@ elif modo == "📊 Ver Sugestões":
         col1.metric("Total de sugestões", len(sugestoes))
         col2.metric(
             "Última sugestão",
-            sugestoes[0][3].split(" ")[0] if sugestoes else "—",
+            sugestoes[0][4].split(" ")[0] if sugestoes else "—",
         )
 
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer, delimiter=";")
-        writer.writerow(["ID", "Sugestão", "Contato", "Data"])
+        writer.writerow(["ID", "Nome", "Telefone", "Sugestão", "Data"])
         writer.writerows(sugestoes)
 
         st.download_button(
@@ -176,15 +229,16 @@ elif modo == "📊 Ver Sugestões":
             with st.container(border=True):
                 col_a, col_b = st.columns([4, 1])
                 with col_a:
-                    st.markdown(f"**#{s[0]}** — _{s[3]}_")
+                    st.markdown(f"**#{s[0]}** — _{s[4]}_")
                 with col_b:
                     if st.button("🗑️", key=f"del_{s[0]}", help="Excluir"):
                         deletar_sugestao(s[0])
                         st.rerun()
 
-                st.write(s[1])
-                if s[2]:
-                    st.caption(f"📞 Contato: {s[2]}")
+                if s[1]:
+                    st.write(f"👤 **Nome:** {s[1]}")
+                st.write(f"📞 **Telefone:** {s[2]}")
+                st.info(f"💬 {s[3]}")
 
 
 elif modo == "📱 Gerar QR Code":
@@ -226,8 +280,5 @@ elif modo == "📱 Gerar QR Code":
             """
         )
 
-# =========================================================
-# Rodapé
-# =========================================================
 st.divider()
-st.caption("SUPERMERCADO BISTECÃO")
+st.caption("SUPERMERCADO BISTECAO")
