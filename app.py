@@ -6,24 +6,24 @@ from io import BytesIO, StringIO
 import qrcode
 
 # =========================================================
-# Configuração inicial (DEVE ser o primeiro comando Streamlit)
+# Configuração inicial
 # =========================================================
 st.set_page_config(
-    page_title="Sugestões da Loja",
-    page_icon="🛒",
+    page_title="Bistecão Sugestões",
+    page_icon="🏪",                 # emoji (o page_icon com PNG pode falhar)
     layout="centered",
 )
 
 # =========================================================
-# Configurações (com fallback caso secrets.toml não exista)
+# Configurações via secrets (SEM fallback de senha)
 # =========================================================
-def get_secret(chave, padrao):
+def get_secret(chave, padrao=None):
     try:
         return st.secrets[chave]
     except Exception:
         return padrao
 
-SENHA_CORRETA = get_secret("senha_lojista", "loja2024")
+SENHA_CORRETA = get_secret("senha_lojista")
 URL_APP_PADRAO = get_secret("url_app", "https://seu-app.streamlit.app")
 
 # =========================================================
@@ -70,15 +70,20 @@ def deletar_sugestao(id_sugestao):
 init_db()
 
 # =========================================================
-# Sidebar — Navegação + Login do lojista
+# Sidebar — Logo + Navegação + Login do lojista
 # =========================================================
-st.sidebar.title("🛒 Menu")
+st.sidebar.image("logo.png", width=140)
+st.sidebar.title("Menu")
 
-senha = st.sidebar.text_input("Senha do lojista (opcional):", type="password")
-is_lojista = senha == SENHA_CORRETA
+senha = st.sidebar.text_input("Ignorar:", type="password")
 
-if senha and not is_lojista:
-    st.sidebar.error("❌ Senha incorreta")
+if SENHA_CORRETA is None:
+    is_lojista = False
+    st.sidebar.warning("⚠️ Senha não configurada. Defina `senha_lojista` em Secrets.")
+else:
+    is_lojista = senha == SENHA_CORRETA
+    if senha and not is_lojista:
+        st.sidebar.error("❌ Senha incorreta")
 
 if is_lojista:
     modo = st.sidebar.radio(
@@ -91,10 +96,15 @@ else:
     st.sidebar.info("💡 Você está vendo a página do cliente")
 
 # =========================================================
-# Página 1 — Formulário do Cliente
+# Página 1 — Formulário do Cliente (com logo no topo)
 # =========================================================
 if modo == "📝 Formulário do Cliente":
-    st.title("🛒 Sua Opinião é Muito Importante!")
+    col_logo, col_texto = st.columns([1, 4])
+    with col_logo:
+        st.image("logo.png", width=90)
+    with col_texto:
+        st.title("Supermercado Bistecão Sugestões.")
+
     st.write(
         "Conte o que está faltando na loja ou deixe uma sugestão. "
         "Leva menos de 1 minuto! ⏱️"
@@ -145,7 +155,6 @@ elif modo == "📊 Ver Sugestões":
             sugestoes[0][3].split(" ")[0] if sugestoes else "—",
         )
 
-        # Exportação CSV
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer, delimiter=";")
         writer.writerow(["ID", "Sugestão", "Contato", "Data"])
@@ -222,4 +231,4 @@ elif modo == "📱 Gerar QR Code":
 # Rodapé
 # =========================================================
 st.divider()
-st.caption("made by dash")
+st.caption("SUPERMERCADO BISTECÃO")
