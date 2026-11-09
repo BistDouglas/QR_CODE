@@ -17,6 +17,15 @@ st.set_page_config(
     }
 )
 
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 def get_secret(chave, padrao=None):
     try:
         return st.secrets[chave]
