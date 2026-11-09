@@ -5,18 +5,13 @@ from datetime import datetime
 from io import BytesIO, StringIO
 import qrcode
 
-# =========================================================
-# Configuração inicial
-# =========================================================
+
 st.set_page_config(
     page_title="Bistecão Sugestões",
-    page_icon="🏪",                 # emoji (o page_icon com PNG pode falhar)
+    page_icon="🏪",              
     layout="centered",
 )
 
-# =========================================================
-# Configurações via secrets (SEM fallback de senha)
-# =========================================================
 def get_secret(chave, padrao=None):
     try:
         return st.secrets[chave]
@@ -26,9 +21,7 @@ def get_secret(chave, padrao=None):
 SENHA_CORRETA = get_secret("senha_lojista")
 URL_APP_PADRAO = get_secret("url_app", "https://seu-app.streamlit.app")
 
-# =========================================================
-# Banco de dados (SQLite)
-# =========================================================
+
 DB_PATH = "sugestoes.db"
 
 def init_db():
@@ -69,9 +62,7 @@ def deletar_sugestao(id_sugestao):
 
 init_db()
 
-# =========================================================
-# Sidebar — Logo + Navegação + Login do lojista
-# =========================================================
+
 st.sidebar.image("logo.png", width=140)
 st.sidebar.title("Menu")
 
@@ -95,9 +86,7 @@ else:
     modo = "📝 Formulário do Cliente"
     st.sidebar.info("💡 Você está vendo a página do cliente")
 
-# =========================================================
-# Página 1 — Formulário do Cliente (com logo no topo)
-# =========================================================
+
 if modo == "📝 Formulário do Cliente":
     col_logo, col_texto = st.columns([1, 4])
     with col_logo:
@@ -136,9 +125,7 @@ if modo == "📝 Formulário do Cliente":
     st.divider()
     st.caption("💬 Sua sugestão nos ajuda a melhorar cada dia mais.")
 
-# =========================================================
-# Página 2 — Painel do Lojista
-# =========================================================
+
 elif modo == "📊 Ver Sugestões":
     st.title("📊 Sugestões Recebidas")
     sugestoes = listar_sugestoes()
@@ -185,9 +172,7 @@ elif modo == "📊 Ver Sugestões":
                 if s[2]:
                     st.caption(f"📞 Contato: {s[2]}")
 
-# =========================================================
-# Página 3 — Gerador de QR Code
-# =========================================================
+
 elif modo == "📱 Gerar QR Code":
     st.title("📱 QR Code para a Loja")
     st.write(
