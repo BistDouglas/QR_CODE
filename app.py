@@ -1,13 +1,13 @@
 import streamlit as st
-import sqlite3
 import csv
 import re
 from datetime import datetime
 from io import BytesIO, StringIO
 import qrcode
+from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(
-    page_title="Sugestões Bistecão",
+    page_title="Sugestões Supermercado",
     page_icon="🏪",
     layout="centered",
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
@@ -15,39 +15,17 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-        /* Esconde o menu principal e o rodapé */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        
-        /* Esconde a barra de ferramentas do topo (Share, GitHub, etc) */
-        div[data-testid="stToolbar"] {
-            visibility: hidden;
-            height: 0%;
-            position: fixed;
-        }
-        
-        /* Esconde o botão de deploy */
-        .stDeployButton {
-            display: none;
-        }
-
-        /* Garante que o botão de reabrir a sidebar funcione, se você precisar */
-        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            z-index: 999999 !important;
-        }
-
-        /* Borda azul nos inputs e botões */
+        header[data-testid="stHeader"] {background: transparent; height: 0;}
+        div[data-testid="stToolbar"] {visibility: hidden; height: 0%; position: fixed;}
+        .stDeployButton {display: none;}
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
             box-shadow: 0 0 0 1px #1f77b4 !important;
         }
-        div[data-testid="stForm"] {
-            border-color: #1f77b4 !important;
-        }
+        div[data-testid="stForm"] {border-color: #1f77b4 !important;}
         .stButton > button {
             border-color: #1f77b4 !important;
             color: #1f77b4 !important;
@@ -69,45 +47,38 @@ def get_secret(chave, padrao=None):
 SENHA_CORRETA = get_secret("senha_lojista", "loja2024")
 URL_APP_PADRAO = get_secret("url_app", "https://seu-app.streamlit.app")
 
-DB_PATH = "sugestoes.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    # NÃO use DROP TABLE aqui. O IF NOT EXISTS já faz o trabalho seguro.
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sugestoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT,
-            telefone TEXT NOT NULL,
-            sugestao TEXT NOT NULL,
-            data TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+# Conexão com o Google Sheets
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Erro ao conectar com o Google Sheets. Verifique os Secrets. Detalhe: {e}")
+    st.stop()
 
 def salvar_sugestao(nome, telefone, sugestao):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO sugestoes (nome, telefone, sugestao, data) VALUES (?, ?, ?, ?)",
-        (nome, telefone, sugestao, datetime.now().strftime("%d/%m/%Y %H:%M")),
-    )
-    conn.commit()
-    conn.close()
+    # Lê os dados atuais (se houver) e adiciona a nova linha
+    df = conn.read(ttl=0)
+    nova_linha = {
+        "Nome": nome,
+        "Telefone": telefone,
+        "Sugestao": sugestao,
+        "Data": datetime.now().strftime("%d/%m/%Y %H:%M")
+    }
+    # Converte a nova linha para DataFrame e concatena
+    import pandas as pd
+    df_novo = pd.DataFrame([nova_linha])
+    df_final = pd.concat([df, df_novo], ignore_index=True)
+    # Atualiza a planilha inteira
+    conn.update(data=df_final)
 
 def listar_sugestoes():
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT id, nome, telefone, sugestao, data FROM sugestoes ORDER BY id DESC"
-    ).fetchall()
-    conn.close()
-    return rows
+    df = conn.read(ttl=0)
+    # Converte o DataFrame para uma lista de tuplas (para manter o formato de exibição)
+    return [tuple(x) for x in df.values]
 
-def deletar_sugestao(id_sugestao):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM sugestoes WHERE id = ?", (id_sugestao,))
-    conn.commit()
-    conn.close()
+def deletar_sugestao(index):
+    df = conn.read(ttl=0)
+    df = df.drop(index=index).reset_index(drop=True)
+    conn.update(data=df)
 
 def validar_telefone(telefone):
     numeros = re.sub(r'\D', '', telefone)
@@ -115,10 +86,7 @@ def validar_telefone(telefone):
         return True, numeros
     return False, numeros
 
-init_db()
-
-# Navegação por Abas no topo (sem barra lateral)
-aba_cliente, aba_lojista = st.tabs(["🛒 Deixar Sugestão", "🔐 IGNORAR"])
+aba_cliente, aba_lojista = st.tabs(["🛒 Deixar Sugestão", "🔐 Área do Lojista"])
 
 with aba_cliente:
     col_logo, col_texto = st.columns([1, 4])
@@ -149,11 +117,8 @@ with aba_cliente:
             st.success("🎉 Obrigado! Sua sugestão foi registrada com sucesso.")
             st.balloons()
 
-    st.divider()
-    st.caption("💬 Sua sugestão nos ajuda a melhorar cada dia mais.")
-
 with aba_lojista:
-    senha = st.text_input("IGNORAR:", type="password")
+    senha = st.text_input("Senha do lojista:", type="password")
     
     if senha == SENHA_CORRETA:
         st.success("✅ Logado como lojista")
@@ -165,69 +130,42 @@ with aba_lojista:
             sugestoes = listar_sugestoes()
 
             if not sugestoes:
-                st.info("Ainda não há sugestões. Compartilhe o QR code com seus clientes!")
+                st.info("Ainda não há sugestões.")
             else:
-                col1, col2 = st.columns(2)
-                col1.metric("Total de sugestões", len(sugestoes))
-                col2.metric("Última sugestão", sugestoes[0][4].split(" ")[0] if sugestoes else "—")
-
+                st.metric("Total de sugestões", len(sugestoes))
+                
+                # Exportação CSV
                 csv_buffer = StringIO()
                 writer = csv.writer(csv_buffer, delimiter=";")
-                writer.writerow(["ID", "Nome", "Telefone", "Sugestão", "Data"])
+                writer.writerow(["Nome", "Telefone", "Sugestao", "Data"])
                 writer.writerows(sugestoes)
-
-                st.download_button(
-                    "⬇️ Baixar CSV",
-                    data=csv_buffer.getvalue().encode("utf-8-sig"),
-                    file_name=f"sugestoes_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
+                st.download_button("⬇️ Baixar CSV", data=csv_buffer.getvalue().encode("utf-8-sig"), file_name="sugestoes.csv", mime="text/csv")
 
                 st.divider()
-                st.subheader("📋 Lista de sugestões")
-
-                for s in sugestoes:
+                for i, s in enumerate(sugestoes):
                     with st.container(border=True):
                         col_a, col_b = st.columns([4, 1])
                         with col_a:
-                            st.markdown(f"**#{s[0]}** — _{s[4]}_")
+                            st.markdown(f"**{s[0] if s[0] else 'Anônimo'}** — _{s[3]}_")
                         with col_b:
-                            if st.button("🗑️", key=f"del_{s[0]}", help="Excluir"):
-                                deletar_sugestao(s[0])
+                            if st.button("🗑️", key=f"del_{i}", help="Excluir"):
+                                deletar_sugestao(i)
                                 st.rerun()
-
-                        if s[1]:
-                            st.write(f"👤 **Nome:** {s[1]}")
-                        st.write(f"📞 **Telefone:** {s[2]}")
-                        st.info(f"💬 {s[3]}")
+                        st.write(f"📞 **Telefone:** {s[1]}")
+                        st.info(f"💬 {s[2]}")
                         
         with sub_aba2:
             st.title("📱 QR Code para a Loja")
-            st.write("Digite a URL pública do seu app e baixe o QR code para imprimir e colocar na loja.")
-
             url = st.text_input("URL do app:", value=URL_APP_PADRAO)
-
             if url:
                 qr = qrcode.QRCode(version=None, box_size=10, border=4)
                 qr.add_data(url)
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
-
                 buffer = BytesIO()
                 img.save(buffer, format="PNG")
-
                 st.image(buffer.getvalue(), caption="Escaneie para testar", width=300)
+                st.download_button("⬇️ Baixar QR Code (PNG)", data=buffer.getvalue(), file_name="qrcode_loja.png", mime="image/png")
 
-                st.download_button(
-                    "⬇️ Baixar QR Code (PNG)",
-                    data=buffer.getvalue(),
-                    file_name="qrcode_loja.png",
-                    mime="image/png",
-                    use_container_width=True,
-                )
     elif senha:
         st.error("❌ Senha incorreta")
-
-st.divider()
-st.caption("SUPERMERCADO BISTECÃO")
