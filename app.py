@@ -17,27 +17,10 @@ st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        
-        /* Esconde o cabeçalho, mas mantém a estrutura para os botões */
         header[data-testid="stHeader"] {
             background: transparent;
             height: 0;
         }
-        header[data-testid="stHeader"] > div:first-child {
-            display: none;
-        }
-
-        /* FORÇA BRUTA: Tenta todos os seletores conhecidos para o botão de expandir */
-        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"],
-        [data-testid="stHeader"] button[data-testid="stSidebarCollapsedControl"],
-        [data-testid="stHeader"] button[kind="headerNoPadding"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            z-index: 999999 !important;
-        }
-
-        /* Borda azul nos inputs */
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
@@ -64,7 +47,7 @@ def get_secret(chave, padrao=None):
     except Exception:
         return padrao
 
-SENHA_CORRETA = get_secret("senha_lojista")
+SENHA_CORRETA = get_secret("senha_lojista", "loja2024")
 URL_APP_PADRAO = get_secret("url_app", "https://seu-app.streamlit.app")
 
 DB_PATH = "sugestoes.db"
@@ -115,30 +98,10 @@ def validar_telefone(telefone):
 
 init_db()
 
-try:
-    st.sidebar.image("logo.png", width=140)
-except Exception:
-    pass
+# Navegação por Abas no topo (sem barra lateral)
+aba_cliente, aba_lojista = st.tabs(["🛒 Deixar Sugestão", "🔐 Área do Lojista"])
 
-st.sidebar.title("Menu")
-senha = st.sidebar.text_input("Senha do lojista (opcional):", type="password")
-
-if SENHA_CORRETA is None:
-    is_lojista = False
-    st.sidebar.warning("⚠️ Senha não configurada. Defina `senha_lojista` em Secrets.")
-else:
-    is_lojista = senha == SENHA_CORRETA
-    if senha and not is_lojista:
-        st.sidebar.error("❌ Senha incorreta")
-
-if is_lojista:
-    modo = st.sidebar.radio("Navegar para:", ["📊 Ver Sugestões", "📱 Gerar QR Code"])
-    st.sidebar.success("✅ Logado como lojista")
-else:
-    modo = "📝 Formulário do Cliente"
-    st.sidebar.info("💡 Você está vendo a página do cliente")
-
-if modo == "📝 Formulário do Cliente":
+with aba_cliente:
     col_logo, col_texto = st.columns([1, 4])
     with col_logo:
         try:
@@ -170,83 +133,82 @@ if modo == "📝 Formulário do Cliente":
     st.divider()
     st.caption("💬 Sua sugestão nos ajuda a melhorar cada dia mais.")
 
-elif modo == "📊 Ver Sugestões":
-    st.title("📊 Sugestões Recebidas")
-    sugestoes = listar_sugestoes()
+with aba_lojista:
+    senha = st.text_input("Senha do lojista:", type="password")
+    
+    if senha == SENHA_CORRETA:
+        st.success("✅ Logado como lojista")
+        
+        sub_aba1, sub_aba2 = st.tabs(["📊 Ver Sugestões", "📱 Gerar QR Code"])
+        
+        with sub_aba1:
+            st.title("📊 Sugestões Recebidas")
+            sugestoes = listar_sugestoes()
 
-    if not sugestoes:
-        st.info("Ainda não há sugestões. Compartilhe o QR code com seus clientes!")
-    else:
-        col1, col2 = st.columns(2)
-        col1.metric("Total de sugestões", len(sugestoes))
-        col2.metric("Última sugestão", sugestoes[0][4].split(" ")[0] if sugestoes else "—")
+            if not sugestoes:
+                st.info("Ainda não há sugestões. Compartilhe o QR code com seus clientes!")
+            else:
+                col1, col2 = st.columns(2)
+                col1.metric("Total de sugestões", len(sugestoes))
+                col2.metric("Última sugestão", sugestoes[0][4].split(" ")[0] if sugestoes else "—")
 
-        csv_buffer = StringIO()
-        writer = csv.writer(csv_buffer, delimiter=";")
-        writer.writerow(["ID", "Nome", "Telefone", "Sugestão", "Data"])
-        writer.writerows(sugestoes)
+                csv_buffer = StringIO()
+                writer = csv.writer(csv_buffer, delimiter=";")
+                writer.writerow(["ID", "Nome", "Telefone", "Sugestão", "Data"])
+                writer.writerows(sugestoes)
 
-        st.download_button(
-            "⬇️ Baixar CSV",
-            data=csv_buffer.getvalue().encode("utf-8-sig"),
-            file_name=f"sugestoes_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+                st.download_button(
+                    "⬇️ Baixar CSV",
+                    data=csv_buffer.getvalue().encode("utf-8-sig"),
+                    file_name=f"sugestoes_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
 
-        st.divider()
-        st.subheader("📋 Lista de sugestões")
+                st.divider()
+                st.subheader("📋 Lista de sugestões")
 
-        for s in sugestoes:
-            with st.container(border=True):
-                col_a, col_b = st.columns([4, 1])
-                with col_a:
-                    st.markdown(f"**#{s[0]}** — _{s[4]}_")
-                with col_b:
-                    if st.button("🗑️", key=f"del_{s[0]}", help="Excluir"):
-                        deletar_sugestao(s[0])
-                        st.rerun()
+                for s in sugestoes:
+                    with st.container(border=True):
+                        col_a, col_b = st.columns([4, 1])
+                        with col_a:
+                            st.markdown(f"**#{s[0]}** — _{s[4]}_")
+                        with col_b:
+                            if st.button("🗑️", key=f"del_{s[0]}", help="Excluir"):
+                                deletar_sugestao(s[0])
+                                st.rerun()
 
-                if s[1]:
-                    st.write(f"👤 **Nome:** {s[1]}")
-                st.write(f"📞 **Telefone:** {s[2]}")
-                st.info(f"💬 {s[3]}")
+                        if s[1]:
+                            st.write(f"👤 **Nome:** {s[1]}")
+                        st.write(f"📞 **Telefone:** {s[2]}")
+                        st.info(f"💬 {s[3]}")
+                        
+        with sub_aba2:
+            st.title("📱 QR Code para a Loja")
+            st.write("Digite a URL pública do seu app e baixe o QR code para imprimir e colocar na loja.")
 
-elif modo == "📱 Gerar QR Code":
-    st.title("📱 QR Code para a Loja")
-    st.write("Digite a URL pública do seu app e baixe o QR code para imprimir e colocar na loja.")
+            url = st.text_input("URL do app:", value=URL_APP_PADRAO)
 
-    url = st.text_input("URL do app:", value=URL_APP_PADRAO)
+            if url:
+                qr = qrcode.QRCode(version=None, box_size=10, border=4)
+                qr.add_data(url)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
 
-    if url:
-        qr = qrcode.QRCode(version=None, box_size=10, border=4)
-        qr.add_data(url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
+                buffer = BytesIO()
+                img.save(buffer, format="PNG")
 
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
+                st.image(buffer.getvalue(), caption="Escaneie para testar", width=300)
 
-        st.image(buffer.getvalue(), caption="Escaneie para testar", width=300)
-
-        st.download_button(
-            "⬇️ Baixar QR Code (PNG)",
-            data=buffer.getvalue(),
-            file_name="qrcode_loja.png",
-            mime="image/png",
-            use_container_width=True,
-        )
-
-        st.divider()
-        st.subheader("💡 Dicas de impressão")
-        st.markdown(
-            """
-            - Imprima em tamanho **mínimo de 5x5 cm**
-            - Coloque em local **bem iluminado** e de fácil acesso
-            - Adicione uma frase do tipo: *"Sua opinião vale ouro! Escaneie aqui."*
-            - Teste o QR code com **2 ou 3 celulares diferentes** antes de imprimir em massa
-            """
-        )
+                st.download_button(
+                    "⬇️ Baixar QR Code (PNG)",
+                    data=buffer.getvalue(),
+                    file_name="qrcode_loja.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
+    elif senha:
+        st.error("❌ Senha incorreta")
 
 st.divider()
 st.caption("SUPERMERCADO BISTECÃO")
