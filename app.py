@@ -6,26 +6,17 @@ from datetime import datetime
 from io import BytesIO, StringIO
 import qrcode
 
-
 st.set_page_config(
     page_title="Sugestões Bistecão",
     page_icon="🏪",
     layout="centered",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
-
 
 st.markdown("""
     <style>
-        /* Esconde o menu e o rodapé */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-
-        /* Esconde o cabeçalho, mas mantém os botões da sidebar visíveis */
         header[data-testid="stHeader"] {
             background: transparent;
             height: 0;
@@ -33,14 +24,16 @@ st.markdown("""
         header[data-testid="stHeader"] > div:first-child {
             display: none;
         }
-
-        /* Garante que o botão de expandir a sidebar apareça */
-        [data-testid="stSidebarCollapsedControl"] {
+        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"] {
             display: block !important;
             visibility: visible !important;
+            opacity: 1 !important;
         }
-
-        /* Borda azul nos inputs (mantido) */
+        [data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
@@ -61,7 +54,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 def get_secret(chave, padrao=None):
     try:
         return st.secrets[chave]
@@ -71,11 +63,11 @@ def get_secret(chave, padrao=None):
 SENHA_CORRETA = get_secret("senha_lojista")
 URL_APP_PADRAO = get_secret("url_app", "https://seu-app.streamlit.app")
 
-
 DB_PATH = "sugestoes.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("DROP TABLE IF EXISTS sugestoes")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sugestoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +103,6 @@ def deletar_sugestao(id_sugestao):
     conn.commit()
     conn.close()
 
-# Função para validar e limpar o telefone
 def validar_telefone(telefone):
     numeros = re.sub(r'\D', '', telefone)
     if len(numeros) in [10, 11]:
@@ -120,15 +111,13 @@ def validar_telefone(telefone):
 
 init_db()
 
-
 try:
     st.sidebar.image("logo.png", width=140)
-except:
-    pass # Se não tiver logo, não quebra o app
+except Exception:
+    pass
 
 st.sidebar.title("Menu")
-
-senha = st.sidebar.text_input("IGNORAR:", type="password")
+senha = st.sidebar.text_input("Senha do lojista (opcional):", type="password")
 
 if SENHA_CORRETA is None:
     is_lojista = False
@@ -139,63 +128,37 @@ else:
         st.sidebar.error("❌ Senha incorreta")
 
 if is_lojista:
-    modo = st.sidebar.radio(
-        "Navegar para:",
-        ["📊 Ver Sugestões", "📱 Gerar QR Code"],
-    )
+    modo = st.sidebar.radio("Navegar para:", ["📊 Ver Sugestões", "📱 Gerar QR Code"])
     st.sidebar.success("✅ Logado como lojista")
 else:
     modo = "📝 Formulário do Cliente"
     st.sidebar.info("💡 Você está vendo a página do cliente")
-
 
 if modo == "📝 Formulário do Cliente":
     col_logo, col_texto = st.columns([1, 4])
     with col_logo:
         try:
             st.image("logo.png", width=90)
-        except:
+        except Exception:
             pass
     with col_texto:
-        st.title("Supermercado Bistecão Sugestões.")
+        st.title("Sugestões Supermercado Bistecão")
 
-    st.write(
-        "Conte o que está faltando na loja ou deixe uma sugestão. "
-        "Leva menos de 1 minuto! ⏱️"
-    )
+    st.write("Conte o que está faltando na loja ou deixe uma sugestão. Leva menos de 1 minuto! ⏱️")
 
     with st.form(key="form_sugestao", clear_on_submit=True):
-        nome = st.text_input(
-            "Seu nome (opcional)",
-            placeholder="Ex: João Silva"
-        )
-        
-        telefone_input = st.text_input(
-            "Seu telefone/WhatsApp *",
-            placeholder="Ex: (11) 99999-9999"
-        )
-        
-        sugestao = st.text_area(
-            "O que está faltando ou poderia melhorar? *",
-            placeholder="Ex: Sinto falta de produtos sem lactose...",
-            max_chars=500,
-            height=150,
-        )
-        
-        enviado = st.form_submit_button(
-            "✅ Enviar Sugestão", use_container_width=True
-        )
+        nome = st.text_input("Seu nome (opcional)", placeholder="Ex: João Silva")
+        telefone_input = st.text_input("Seu telefone/WhatsApp *", placeholder="Ex: (11) 99999-9999")
+        sugestao = st.text_area("O que está faltando ou poderia melhorar? *", placeholder="Ex: Sinto falta de produtos sem lactose...", max_chars=500, height=150)
+        enviado = st.form_submit_button("✅ Enviar Sugestão", use_container_width=True)
 
-    
     if enviado:
         telefone_valido, telefone_limpo = validar_telefone(telefone_input)
-        
         if not telefone_valido:
             st.error("⚠️ Telefone inválido! Digite um número com DDD (10 ou 11 dígitos). Ex: (11) 99999-9999")
         elif not sugestao.strip():
             st.warning("⚠️ Por favor, escreva sua sugestão antes de enviar.")
         else:
-            # AQUI ESTAVA O ERRO: Agora passamos as variáveis corretas
             salvar_sugestao(nome.strip(), telefone_limpo, sugestao.strip())
             st.success("🎉 Obrigado! Sua sugestão foi registrada com sucesso.")
             st.balloons()
@@ -203,22 +166,16 @@ if modo == "📝 Formulário do Cliente":
     st.divider()
     st.caption("💬 Sua sugestão nos ajuda a melhorar cada dia mais.")
 
-
 elif modo == "📊 Ver Sugestões":
     st.title("📊 Sugestões Recebidas")
     sugestoes = listar_sugestoes()
 
     if not sugestoes:
-        st.info(
-            "Ainda não há sugestões. Compartilhe o QR code com seus clientes!"
-        )
+        st.info("Ainda não há sugestões. Compartilhe o QR code com seus clientes!")
     else:
         col1, col2 = st.columns(2)
         col1.metric("Total de sugestões", len(sugestoes))
-        col2.metric(
-            "Última sugestão",
-            sugestoes[0][4].split(" ")[0] if sugestoes else "—",
-        )
+        col2.metric("Última sugestão", sugestoes[0][4].split(" ")[0] if sugestoes else "—")
 
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer, delimiter=";")
@@ -251,13 +208,9 @@ elif modo == "📊 Ver Sugestões":
                 st.write(f"📞 **Telefone:** {s[2]}")
                 st.info(f"💬 {s[3]}")
 
-
 elif modo == "📱 Gerar QR Code":
     st.title("📱 QR Code para a Loja")
-    st.write(
-        "Digite a URL pública do seu app e baixe o QR code para imprimir "
-        "e colocar na loja."
-    )
+    st.write("Digite a URL pública do seu app e baixe o QR code para imprimir e colocar na loja.")
 
     url = st.text_input("URL do app:", value=URL_APP_PADRAO)
 
@@ -292,4 +245,4 @@ elif modo == "📱 Gerar QR Code":
         )
 
 st.divider()
-st.caption("SUPERMERCADO BISTECAO")
+st.caption("SUPERMERCADO BISTECÃO")
