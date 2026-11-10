@@ -17,6 +17,8 @@ st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        
+        /* Esconde o cabeçalho, mas mantém a estrutura para os botões */
         header[data-testid="stHeader"] {
             background: transparent;
             height: 0;
@@ -24,16 +26,18 @@ st.markdown("""
         header[data-testid="stHeader"] > div:first-child {
             display: none;
         }
-        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"] {
+
+        /* FORÇA BRUTA: Tenta todos os seletores conhecidos para o botão de expandir */
+        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"],
+        [data-testid="stHeader"] button[data-testid="stSidebarCollapsedControl"],
+        [data-testid="stHeader"] button[kind="headerNoPadding"] {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
+            z-index: 999999 !important;
         }
-        [data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
+
+        /* Borda azul nos inputs */
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
