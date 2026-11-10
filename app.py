@@ -15,12 +15,31 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+        /* Esconde o menu principal e o rodapé */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header[data-testid="stHeader"] {
-            background: transparent;
-            height: 0;
+        
+        /* Esconde a barra de ferramentas do topo (Share, GitHub, etc) */
+        div[data-testid="stToolbar"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
         }
+        
+        /* Esconde o botão de deploy */
+        .stDeployButton {
+            display: none;
+        }
+
+        /* Garante que o botão de reabrir a sidebar funcione, se você precisar */
+        [data-testid="stHeader"] button[data-testid="stExpandSidebarButton"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 999999 !important;
+        }
+
+        /* Borda azul nos inputs e botões */
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
