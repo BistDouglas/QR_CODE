@@ -73,7 +73,7 @@ DB_PATH = "sugestoes.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("DROP TABLE IF EXISTS sugestoes")
+    # NÃO use DROP TABLE aqui. O IF NOT EXISTS já faz o trabalho seguro.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sugestoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
