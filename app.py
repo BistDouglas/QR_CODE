@@ -118,7 +118,7 @@ def validar_telefone(telefone):
 init_db()
 
 # Navegação por Abas no topo (sem barra lateral)
-aba_cliente, aba_lojista = st.tabs(["🛒 Deixar Sugestão", "🔐 Área do Lojista"])
+aba_cliente, aba_lojista = st.tabs(["🛒 Deixar Sugestão", "🔐 IGNORAR"])
 
 with aba_cliente:
     col_logo, col_texto = st.columns([1, 4])
@@ -153,7 +153,7 @@ with aba_cliente:
     st.caption("💬 Sua sugestão nos ajuda a melhorar cada dia mais.")
 
 with aba_lojista:
-    senha = st.text_input("Senha do lojista:", type="password")
+    senha = st.text_input("IGNORAR:", type="password")
     
     if senha == SENHA_CORRETA:
         st.success("✅ Logado como lojista")
