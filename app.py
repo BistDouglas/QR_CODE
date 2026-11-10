@@ -21,23 +21,34 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+        /* Esconde o menu e o rodapé */
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
         footer {visibility: hidden;}
-        
-        /* Borda azul nos inputs */
+
+        /* Esconde o cabeçalho, mas mantém os botões da sidebar visíveis */
+        header[data-testid="stHeader"] {
+            background: transparent;
+            height: 0;
+        }
+        header[data-testid="stHeader"] > div:first-child {
+            display: none;
+        }
+
+        /* Garante que o botão de expandir a sidebar apareça */
+        [data-testid="stSidebarCollapsedControl"] {
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        /* Borda azul nos inputs (mantido) */
         .stTextInput > div > div > input:focus, 
         .stTextArea > div > div > textarea:focus {
             border-color: #1f77b4 !important;
             box-shadow: 0 0 0 1px #1f77b4 !important;
         }
-        
-        /* Borda azul no container do formulário */
         div[data-testid="stForm"] {
             border-color: #1f77b4 !important;
         }
-        
-        /* Botão azul */
         .stButton > button {
             border-color: #1f77b4 !important;
             color: #1f77b4 !important;
