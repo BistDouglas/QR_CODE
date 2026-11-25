@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -27,7 +28,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 APP_TITLE = "Sugestões | Supermercado Bistecão"
-LOGO_PATH = "logo.png"
+BASE_DIR = Path(__file__).resolve().parent
+LOGO_PATH = BASE_DIR / "logo.png"
+FAVICON_PATH = BASE_DIR / "favicon.png"
 COLUNAS = ("Nome", "Telefone", "Sugestao", "Data")
 DATE_FORMAT = "%d/%m/%Y %H:%M"
 MAX_NOME = 80
@@ -484,7 +487,7 @@ def main() -> None:
     """Ponto de entrada da aplicação."""
     st.set_page_config(
         page_title=APP_TITLE,
-        page_icon="🏪",
+        page_icon=str(FAVICON_PATH),
         layout="centered",
         menu_items={"Get Help": None, "Report a bug": None, "About": None},
     )
