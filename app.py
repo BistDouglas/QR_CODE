@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 APP_TITLE = "Sugestões | Supermercado Bistecão"
 BASE_DIR = Path(__file__).resolve().parent
-LOGO_PATH = BASE_DIR / "logo.png"
-FAVICON_PATH = BASE_DIR / "favicon.png"
+LOGO_PATH = "logo.png"
+FAVICON_PATH = str(BASE_DIR / "favicon.png")
 COLUNAS = ("Nome", "Telefone", "Sugestao", "Data")
 DATE_FORMAT = "%d/%m/%Y %H:%M"
 MAX_NOME = 80
@@ -286,9 +286,9 @@ def renderizar_cabecalho() -> None:
     col_logo, col_titulo = st.columns([1, 6], gap="medium")
     with col_logo:
         try:
-            st.image(LOGO_PATH, width=76)
-        except (FileNotFoundError, OSError):
-            pass
+            st.image(LOGO_PATH, width=90)
+        except Exception:
+            st.markdown("**Bistecão**")
     with col_titulo:
         st.markdown(
             f"""<div class="app-title">
